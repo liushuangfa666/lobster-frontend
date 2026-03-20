@@ -22,6 +22,15 @@
               <span :class="statusClass[task.status]" class="px-3 py-1 rounded-full text-sm">
                 {{ statusText[task.status] }}
               </span>
+              <!-- WebSocket 连接状态 -->
+              <span
+                :class="wsConnected ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'"
+                class="px-2 py-1 rounded-full text-xs flex items-center gap-1"
+                :title="wsConnected ? '实时推送已连接' : '实时推送未连接'"
+              >
+                <span class="w-2 h-2 rounded-full" :class="wsConnected ? 'bg-green-500' : 'bg-red-500'"></span>
+                {{ wsConnected ? '实时' : '离线' }}
+              </span>
             </div>
 
             <div class="flex items-center gap-6 text-gray-600 mb-6">
@@ -66,7 +75,7 @@
                   <span v-else>刷新</span>
                 </button>
               </div>
-              
+
               <!-- 执行状态标签 -->
               <div class="bg-gray-50 rounded-lg p-4 mb-4">
                 <div class="flex items-center gap-4">
@@ -86,7 +95,9 @@
                   class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 rounded-t-lg"
                 >
                   <span class="font-bold">执行日志</span>
-                  <span>{{ showLogs ? '收起' : '展开' }}</span>
+                  <span>{{ showLogs ? '收起' : '展开' }}
+                    <span v-if="executionLogs.length > 0" class="ml-1 text-[#ff6b35]">({{ executionLogs.length }})</span>
+                  </span>
                 </button>
                 <div v-show="showLogs" class="p-4 border-t">
                   <div v-if="executionLogs.length === 0" class="text-gray-500 text-center py-4">
@@ -94,7 +105,7 @@
                   </div>
                   <div v-else class="bg-black text-green-400 rounded-lg p-4 font-mono text-sm max-h-96 overflow-y-auto">
                     <div v-for="(log, index) in executionLogs" :key="index" class="mb-1">
-                      {{ log }}
+                      {{ formatLogItem(log) }}
                     </div>
                   </div>
                 </div>
@@ -198,11 +209,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { taskAPI, lobsterAPI } from '../api'
+import { useWebSocket, formatLog } from '../api/websocket'
 import { useUserStore } from '../stores/user'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
@@ -221,6 +233,10 @@ const executionResult = ref(null)
 const showLogs = ref(false)
 const refreshingExecution = ref(false)
 const dispatching = ref(false)
+
+// WebSocket 状态
+const wsConnected = ref(false)
+let wsInstance = null
 
 const statusText = {
   0: '待选择龙虾',
@@ -272,6 +288,109 @@ const formatTime = (time) => {
   if (!time) return ''
   return new Date(time).toLocaleDateString('zh-CN')
 }
+
+const formatLogItem = (log) => {
+  if (typeof log === 'string') return log
+  if (log.log) return `[${new Date(log.timestamp).toLocaleTimeString()}] ${log.log}`
+  return JSON.stringify(log)
+}
+
+// 初始化 WebSocket
+const initWebSocket = () => {
+  if (!userStore.userInfo?.id || !userStore.token) {
+    console.log('[TaskDetail] 未登录，跳过 WebSocket 连接')
+    return
+  }
+
+  const userId = userStore.userInfo.id
+  const token = userStore.token
+
+  // 创建 WebSocket 连接
+  const { ws, connected, connect, disconnect, logs } = useWebSocket(
+    userId,
+    token,
+    // 任务状态变更回调
+    (data) => {
+      console.log('[TaskDetail] 任务状态变更:', data)
+      if (data.task_id === task.value?.id) {
+        task.value.status = data.status
+        execution.value.status = data.status
+        ElMessage({
+          message: `任务状态更新: ${statusText[data.status] || data.status}`,
+          type: 'info',
+          duration: 3000
+        })
+      }
+    },
+    // 执行日志回调
+    (data) => {
+      console.log('[TaskDetail] 收到执行日志:', data)
+      if (data.task_id === task.value?.id) {
+        // 添加到日志列表
+        const logEntry = {
+          type: 'log',
+          log: data.log,
+          timestamp: data.timestamp,
+          source: data.source || 'websocket'
+        }
+        // 避免重复添加（根据时间和内容判断）
+        const exists = executionLogs.value.some(
+          l => l.log === data.log && l.timestamp === data.timestamp
+        )
+        if (!exists) {
+          executionLogs.value.push(logEntry)
+          // 自动展开日志
+          showLogs.value = true
+        }
+      }
+    }
+  )
+
+  wsInstance = { ws, connected, disconnect }
+  wsConnected.value = connected.value
+
+  // 监听连接状态变化
+  const originalConnect = connect
+  connect = () => {
+    originalConnect()
+    // 通过 watch 监听 connected 变化更新 wsConnected
+  }
+
+  // 定期检查连接状态
+  const checkInterval = setInterval(() => {
+    if (wsInstance) {
+      wsConnected.value = wsInstance.connected.value
+    }
+  }, 1000)
+
+  // 存储 interval ID 用于清理
+  wsInstance._checkInterval = checkInterval
+
+  // 初始连接
+  connect()
+
+  // 监听日志变化
+  const unwatch = watch(() => logs.value, (newLogs) => {
+    if (newLogs.length > 0) {
+      // 处理新日志
+      newLogs.forEach(log => {
+        if (log.type === 'execution_log' && log.task_id === task.value?.id) {
+          const exists = executionLogs.value.some(
+            l => l.timestamp === log.timestamp && l.log === log.log
+          )
+          if (!exists) {
+            executionLogs.value.push(log)
+            showLogs.value = true
+          }
+        }
+      })
+    }
+  }, { deep: true })
+
+  wsInstance._unwatch = unwatch
+}
+
+import { watch } from 'vue'
 
 const handleComplete = async () => {
   try {
@@ -354,10 +473,26 @@ onMounted(async () => {
     if (res.current_lobster_id && (res.status === 1 || res.status === 2 || res.status === 3)) {
       await refreshExecution()
     }
+
+    // 初始化 WebSocket 连接
+    initWebSocket()
   } catch (error) {
     console.error('加载任务详情失败:', error)
   } finally {
     loading.value = false
+  }
+})
+
+onUnmounted(() => {
+  // 清理 WebSocket 连接
+  if (wsInstance) {
+    if (wsInstance._checkInterval) {
+      clearInterval(wsInstance._checkInterval)
+    }
+    if (wsInstance._unwatch) {
+      wsInstance._unwatch()
+    }
+    wsInstance.disconnect()
   }
 })
 </script>
