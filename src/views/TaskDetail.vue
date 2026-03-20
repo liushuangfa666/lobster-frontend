@@ -53,6 +53,71 @@
               </div>
             </div>
 
+            <!-- OpenClaw 执行进度 -->
+            <div v-if="task.current_lobster_id && (task.status === 1 || task.status === 2 || task.status === 3)" class="mb-6">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-xl font-bold">任务执行进度</h2>
+                <button
+                  @click="refreshExecution"
+                  class="text-sm text-[#ff6b35] hover:underline flex items-center gap-1"
+                  :disabled="refreshingExecution"
+                >
+                  <span v-if="refreshingExecution">刷新中...</span>
+                  <span v-else>刷新</span>
+                </button>
+              </div>
+              
+              <!-- 执行状态标签 -->
+              <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                <div class="flex items-center gap-4">
+                  <span :class="executionStatusClass" class="px-3 py-1 rounded-full text-sm font-bold">
+                    {{ executionStatusText }}
+                  </span>
+                  <span v-if="execution.lobster_name" class="text-gray-600">
+                    执行者: {{ execution.lobster_name }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- 执行日志 (可折叠) -->
+              <div class="border rounded-lg">
+                <button
+                  @click="showLogs = !showLogs"
+                  class="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 rounded-t-lg"
+                >
+                  <span class="font-bold">执行日志</span>
+                  <span>{{ showLogs ? '收起' : '展开' }}</span>
+                </button>
+                <div v-show="showLogs" class="p-4 border-t">
+                  <div v-if="executionLogs.length === 0" class="text-gray-500 text-center py-4">
+                    暂无执行日志
+                  </div>
+                  <div v-else class="bg-black text-green-400 rounded-lg p-4 font-mono text-sm max-h-96 overflow-y-auto">
+                    <div v-for="(log, index) in executionLogs" :key="index" class="mb-1">
+                      {{ log }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 执行结果 -->
+              <div v-if="executionResult" class="mt-4 border rounded-lg p-4">
+                <h3 class="font-bold mb-2">执行结果</h3>
+                <pre class="bg-gray-50 p-4 rounded-lg overflow-x-auto text-sm">{{ JSON.stringify(executionResult, null, 2) }}</pre>
+              </div>
+
+              <!-- 下发任务按钮 -->
+              <div v-if="task.status === 1 && isOwner" class="mt-4">
+                <button
+                  @click="handleDispatch"
+                  :disabled="dispatching"
+                  class="btn-primary w-full"
+                >
+                  {{ dispatching ? '下发中...' : '下发任务给龙虾' }}
+                </button>
+              </div>
+            </div>
+
             <!-- 操作按钮 -->
             <div v-if="isOwner" class="flex gap-4">
               <button
@@ -149,6 +214,14 @@ const lobsters = ref([])
 const showLobsterDialog = ref(false)
 const showReplaceDialog = ref(false)
 
+// OpenClaw 执行状态
+const execution = ref({})
+const executionLogs = ref([])
+const executionResult = ref(null)
+const showLogs = ref(false)
+const refreshingExecution = ref(false)
+const dispatching = ref(false)
+
 const statusText = {
   0: '待选择龙虾',
   1: '待执行',
@@ -169,6 +242,31 @@ const statusClass = {
 
 const isOwner = computed(() => userStore.userInfo?.id === task.value?.user_id)
 const canReplace = computed(() => (task.value?.replace_count || 0) < 2 || task.value?.replace_count === 2)
+
+// OpenClaw 执行状态
+const executionStatusText = computed(() => {
+  const statusMap = {
+    0: '待选择龙虾',
+    1: '待下发',
+    2: '执行中',
+    3: '已完成',
+    4: '已取消',
+    5: '待更换'
+  }
+  return statusMap[execution.value.status] || '未知'
+})
+
+const executionStatusClass = computed(() => {
+  const classMap = {
+    0: 'bg-gray-100 text-gray-600',
+    1: 'bg-blue-100 text-blue-600',
+    2: 'bg-yellow-100 text-yellow-600 animate-pulse',
+    3: 'bg-green-100 text-green-600',
+    4: 'bg-red-100 text-red-600',
+    5: 'bg-orange-100 text-orange-600'
+  }
+  return classMap[execution.value.status] || 'bg-gray-100 text-gray-600'
+})
 
 const formatTime = (time) => {
   if (!time) return ''
@@ -203,8 +301,43 @@ const selectLobster = async (lobsterId) => {
     // 刷新任务详情
     const res = await taskAPI.getDetail(route.params.id)
     task.value = res
+    // 刷新执行状态
+    await refreshExecution()
   } catch (error) {
     console.error('雇佣龙虾失败:', error)
+  }
+}
+
+// OpenClaw 刷新执行状态
+const refreshExecution = async () => {
+  if (refreshingExecution.value) return
+  refreshingExecution.value = true
+  try {
+    const res = await taskAPI.getExecution(route.params.id)
+    execution.value = res
+    executionLogs.value = res.execution_logs || []
+    executionResult.value = res.execution_result || null
+  } catch (error) {
+    console.error('获取执行状态失败:', error)
+  } finally {
+    refreshingExecution.value = false
+  }
+}
+
+// 下发任务给龙虾
+const handleDispatch = async () => {
+  try {
+    dispatching.value = true
+    await taskAPI.dispatch(route.params.id)
+    ElMessage.success('任务已下发到龙虾')
+    // 刷新任务详情和执行状态
+    const res = await taskAPI.getDetail(route.params.id)
+    task.value = res
+    await refreshExecution()
+  } catch (error) {
+    console.error('下发任务失败:', error)
+  } finally {
+    dispatching.value = false
   }
 }
 
@@ -216,6 +349,11 @@ onMounted(async () => {
     // 加载可选龙虾列表
     const lobsterRes = await lobsterAPI.getList({ status: 1, page: 1, page_size: 100 })
     lobsters.value = lobsterRes.items || []
+
+    // 如果有执行的龙虾，加载执行状态
+    if (res.current_lobster_id && (res.status === 1 || res.status === 2 || res.status === 3)) {
+      await refreshExecution()
+    }
   } catch (error) {
     console.error('加载任务详情失败:', error)
   } finally {
