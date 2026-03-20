@@ -60,6 +60,11 @@
           ></textarea>
         </div>
 
+        <div>
+          <label class="block text-gray-700 mb-2">附件上传</label>
+          <FileUpload v-model="form.attachment_url" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" hint="支持 PDF、Word、图片等附件，最大50MB" />
+        </div>
+
         <!-- 预选龙虾 -->
         <div v-if="selectedLobsterId" class="p-4 bg-green-50 rounded-lg">
           <p class="text-green-700 font-bold">已选择执行龙虾</p>
@@ -88,6 +93,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { taskAPI } from '../api'
 import { useUserStore } from '../stores/user'
 import { ElMessage } from 'element-plus'
+import FileUpload from '../components/FileUpload.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -102,6 +108,7 @@ const form = reactive({
   budget: 0,
   deadline: '',
   content: '',
+  attachment_url: '',
 })
 
 const handleSubmit = async () => {
@@ -136,6 +143,7 @@ const handleSubmit = async () => {
       budget: form.budget,
       deadline: form.deadline || undefined,
       content: form.content,
+      attachment_url: form.attachment_url || undefined,
     })
 
     // 如果预选了龙虾，直接雇佣

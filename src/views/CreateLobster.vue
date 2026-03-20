@@ -80,13 +80,8 @@
         </div>
 
         <div>
-          <label class="block text-gray-700 mb-2">演示视频/截图URL</label>
-          <input
-            v-model="form.demo_url"
-            type="url"
-            class="input"
-            placeholder="https://..."
-          />
+          <label class="block text-gray-700 mb-2">演示视频/截图</label>
+          <FileUpload v-model="form.demo_url" accept="image/*,video/*" hint="支持图片或视频，最大50MB" />
         </div>
 
         <div>
@@ -118,6 +113,7 @@ import { useRouter } from 'vue-router'
 import { lobsterAPI, authAPI } from '../api'
 import { useUserStore } from '../stores/user'
 import { ElMessage } from 'element-plus'
+import FileUpload from '../components/FileUpload.vue'
 
 const router = useRouter()
 const userStore = useUserStore()

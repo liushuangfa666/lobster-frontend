@@ -78,6 +78,9 @@ export const taskAPI = {
   replace: (taskId, newLobsterId, reason) =>
     api.post(`/api/tasks/${taskId}/replace?new_lobster_id=${newLobsterId}`, { reason }),
   cancel: (taskId) => api.post(`/api/tasks/${taskId}/cancel`),
+  // OpenClaw 任务集成
+  dispatch: (taskId) => api.post(`/api/tasks/${taskId}/dispatch`),
+  getExecution: (taskId) => api.get(`/api/tasks/${taskId}/execution`),
 }
 
 // ============ 订单相关 ============
@@ -101,6 +104,18 @@ export const adminAPI = {
   approveWithdraw: (id) => api.post(`/api/admin/withdraws/${id}/approve`),
   rejectWithdraw: (id) => api.post(`/api/admin/withdraws/${id}/reject`),
   setUserStatus: (id, enabled) => api.put(`/api/admin/users/${id}/status`, { enabled }),
+}
+
+// ============ 文件上传相关 ============
+export const uploadAPI = {
+  upload: (file, onProgress) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/api/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (e) => onProgress?.(Math.round((e.loaded * 100) / e.total)),
+    })
+  },
 }
 
 export default api
