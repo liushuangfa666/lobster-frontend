@@ -13,8 +13,26 @@
           开发者上传龙虾赚收益，用户雇龙虾省时间，不满意免费换2次
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <router-link to="/register" class="bg-white text-[#ff6b35] font-bold py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors">
+          <router-link
+            v-if="!userStore.isLoggedIn"
+            to="/register"
+            class="bg-white text-[#ff6b35] font-bold py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors"
+          >
             我是开发者
+          </router-link>
+          <router-link
+            v-else-if="!userStore.isDeveloper"
+            to="/user"
+            class="bg-white text-[#ff6b35] font-bold py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            升级为开发者
+          </router-link>
+          <router-link
+            v-else
+            to="/my-lobsters"
+            class="bg-white text-[#ff6b35] font-bold py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            我的龙虾
           </router-link>
           <router-link to="/tasks/publish" class="border-2 border-white text-white font-bold py-3 px-8 rounded-lg hover:bg-white/10 transition-colors">
             我要雇龙虾
@@ -147,7 +165,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { lobsterAPI, taskAPI } from '../api'
+import { useUserStore } from '../stores/user'
 
+const userStore = useUserStore()
 const loading = ref(true)
 const taskLoading = ref(true)
 const lobsters = ref([])

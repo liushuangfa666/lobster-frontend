@@ -47,7 +47,18 @@
             {{ form.price_type === 3 ? '每次任务价格' : '价格' }} *
           </label>
           <input
-            v-model.number="form.price_type === 3 ? form.task_price : form.price"
+            v-if="form.price_type === 3"
+            v-model.number="form.task_price"
+            type="number"
+            step="0.01"
+            min="0"
+            class="input"
+            placeholder="请输入每次任务价格"
+            required
+          />
+          <input
+            v-else
+            v-model.number="form.price"
             type="number"
             step="0.01"
             min="0"

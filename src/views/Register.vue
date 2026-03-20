@@ -86,7 +86,12 @@ const handleRegister = async () => {
   }
   loading.value = true
   try {
-    await authAPI.register(form.value)
+    const data = {}
+    if (form.value.username) data.username = form.value.username
+    if (form.value.password) data.password = form.value.password
+    if (form.value.email) data.email = form.value.email
+    if (form.value.phone) data.phone = form.value.phone
+    await authAPI.register(data)
     ElMessage.success('注册成功，请登录')
     router.push('/login')
   } catch (error) {
