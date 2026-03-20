@@ -53,6 +53,7 @@ export const authAPI = {
     })
   },
   getMe: () => api.get('/api/auth/me'),
+  checkUpgrade: () => api.get('/api/auth/check-upgrade'),
   upgradeToDeveloper: () => api.post('/api/auth/upgrade-to-developer'),
 }
 
@@ -86,6 +87,20 @@ export const orderAPI = {
   createComment: (data) => api.post('/api/orders/comments', data),
   withdraw: (data) => api.post('/api/orders/withdraw', data),
   getWithdrawHistory: () => api.get('/api/orders/withdraw/history'),
+}
+
+// ============ 管理员相关 ============
+export const adminAPI = {
+  getStats: () => api.get('/api/admin/stats'),
+  getUsers: (page, page_size) => api.get('/api/admin/users', { params: { page, page_size } }),
+  getPendingLobsters: () => api.get('/api/admin/lobsters/pending'),
+  getLobsters: (status) => api.get('/api/admin/lobsters', { params: { status } }),
+  approveLobster: (id, reason) => api.post(`/api/admin/lobsters/${id}/approve`, { reason }),
+  rejectLobster: (id, reason) => api.post(`/api/admin/lobsters/${id}/reject`, { reason }),
+  getPendingWithdraws: () => api.get('/api/admin/withdraws/pending'),
+  approveWithdraw: (id) => api.post(`/api/admin/withdraws/${id}/approve`),
+  rejectWithdraw: (id) => api.post(`/api/admin/withdraws/${id}/reject`),
+  setUserStatus: (id, enabled) => api.put(`/api/admin/users/${id}/status`, { enabled }),
 }
 
 export default api

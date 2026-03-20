@@ -30,6 +30,13 @@
               >
                 我的龙虾
               </router-link>
+              <router-link
+                v-if="userStore.isAdmin"
+                to="/admin"
+                class="text-red-600 hover:text-red-700 font-medium"
+              >
+                管理后台
+              </router-link>
               <router-link to="/user" class="text-gray-600 hover:text-[#ff6b35]">
                 个人中心
               </router-link>
