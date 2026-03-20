@@ -52,14 +52,6 @@
               <span class="text-[#ff6b35] font-bold">¥{{ userStore.userInfo?.balance || 0 }}</span>
             </div>
           </div>
-
-          <!-- 升级为开发者 -->
-          <div v-if="!userStore.isDeveloper" class="mt-8 p-4 bg-gray-50 rounded-lg">
-            <p class="text-gray-600 mb-4">成为开发者，上架龙虾赚收益</p>
-            <button @click="upgradeToDeveloper" class="btn-primary">
-              升级为开发者
-            </button>
-          </div>
         </div>
 
         <!-- 我的任务 -->
@@ -88,31 +80,42 @@
 
         <!-- 我的龙虾 -->
         <div v-if="activeTab === 'lobsters'" class="bg-white rounded-xl shadow-md p-6">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xl font-bold">我的龙虾</h2>
-            <router-link to="/lobsters/create" class="btn-primary">
-              上架新龙虾
-            </router-link>
-          </div>
-          <div v-if="myLobsters.length === 0" class="text-center py-8 text-gray-500">
-            暂无龙虾，成为开发者开始上架吧
-          </div>
-          <div v-else class="space-y-4">
-            <div
-              v-for="lobster in myLobsters"
-              :key="lobster.id"
-              class="border rounded-lg p-4 cursor-pointer hover:border-[#ff6b35]"
-              @click="$router.push(`/lobsters/${lobster.id}`)"
-            >
-              <div class="flex justify-between">
-                <span class="font-bold">{{ lobster.name }}</span>
-                <span :class="lobsterStatusClass[lobster.status]" class="px-2 py-0.5 rounded text-xs">
-                  {{ lobsterStatusText[lobster.status] }}
-                </span>
-              </div>
-              <p class="text-gray-500 text-sm mt-1">销量：{{ lobster.sales }} · 评分：{{ lobster.score }}</p>
+          <template v-if="!userStore.isDeveloper && !userStore.isAdmin">
+            <h2 class="text-xl font-bold mb-4 text-center">我的龙虾</h2>
+            <div class="text-center py-8">
+              <p class="text-gray-600 mb-4">成为开发者，上架龙虾赚收益</p>
+              <router-link to="/lobsters/create" class="btn-primary inline-block">
+                上架新龙虾
+              </router-link>
             </div>
-          </div>
+          </template>
+          <template v-else>
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="text-xl font-bold">我的龙虾</h2>
+              <router-link to="/lobsters/create" class="btn-primary">
+                上架新龙虾
+              </router-link>
+            </div>
+            <div v-if="myLobsters.length === 0" class="text-center py-8 text-gray-500">
+              暂无龙虾，开始上架吧
+            </div>
+            <div v-else class="space-y-4">
+              <div
+                v-for="lobster in myLobsters"
+                :key="lobster.id"
+                class="border rounded-lg p-4 cursor-pointer hover:border-[#ff6b35]"
+                @click="$router.push(`/lobsters/${lobster.id}`)"
+              >
+                <div class="flex justify-between">
+                  <span class="font-bold">{{ lobster.name }}</span>
+                  <span :class="lobsterStatusClass[lobster.status]" class="px-2 py-0.5 rounded text-xs">
+                    {{ lobsterStatusText[lobster.status] }}
+                  </span>
+                </div>
+                <p class="text-gray-500 text-sm mt-1">销量：{{ lobster.sales }} · 评分：{{ lobster.score }}</p>
+              </div>
+            </div>
+          </template>
         </div>
 
         <!-- 我的订单 -->
@@ -143,10 +146,13 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../stores/user'
-import { taskAPI, lobsterAPI, orderAPI } from '../api'
+import { taskAPI, lobsterAPI, orderAPI, authAPI } from '../api'
 import { ElMessage } from 'element-plus'
 
+const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 
 const activeTab = ref('info')
@@ -164,17 +170,15 @@ const menuItems = computed(() => {
     { key: 'info', label: '基本信息' },
     { key: 'tasks', label: '我的任务' },
     { key: 'orders', label: '我的订单' },
+    { key: 'lobsters', label: '我的龙虾' },
   ]
-  if (userStore.isDeveloper) {
-    items.splice(2, 0, { key: 'lobsters', label: '我的龙虾' })
-  }
   return items
 })
 
 const statusText = { 0: '待选择', 1: '待执行', 2: '执行中', 3: '已完成', 4: '已取消', 5: '待更换' }
 const statusClass = { 0: 'bg-gray-100', 1: 'bg-blue-100', 2: 'bg-yellow-100', 3: 'bg-green-100', 4: 'bg-red-100', 5: 'bg-orange-100' }
 const lobsterStatusText = { 0: '待审核', 1: '已上架', 2: '已下架', 3: '审核失败' }
-const lobsterStatusClass = { 0: 'bg-gray-100', 1: 'bg-green-100', 2: 'bg-red-100', 3: 'bg-orange-100' }
+const lobsterStatusClass = { 0: 'bg-gray-100 text-gray-600', 1: 'bg-green-100 text-green-600', 2: 'bg-red-100 text-red-600', 3: 'bg-orange-100 text-orange-600' }
 const orderStatusText = { 0: '待支付', 1: '已托管', 2: '已结算', 3: '已取消', 4: '已退款' }
 const orderStatusClass = { 0: 'bg-gray-100', 1: 'bg-blue-100', 2: 'bg-green-100', 3: 'bg-red-100', 4: 'bg-orange-100' }
 const orderNoType = { 0: '购买', 1: '雇佣', 2: '更换手续费' }
@@ -183,8 +187,17 @@ const formatTime = (time) => new Date(time).toLocaleDateString('zh-CN')
 
 const upgradeToDeveloper = async () => {
   try {
-    await userStore.upgradeToDeveloper()
-    ElMessage.success('升级成功！')
+    const res = await authAPI.checkUpgrade()
+    console.log('checkUpgrade 返回:', res)
+    if (res.can_upgrade) {
+      console.log('有龙虾，升级')
+      await authAPI.upgradeToDeveloper()
+      await userStore.fetchUserInfo()
+      ElMessage.success('升级成功！')
+    } else {
+      console.log('没龙虾，跳转')
+      router.push('/lobsters/create')
+    }
   } catch (error) {
     console.error('升级失败:', error)
   }
@@ -196,7 +209,6 @@ const loadData = async () => {
       taskAPI.getList({ page: 1, page_size: 100 }),
       orderAPI.getList({ page: 1, page_size: 100 }),
     ])
-    // 筛选当前用户的任务和订单
     myTasks.value = (taskRes.items || []).filter(t => t.user_id === userStore.userInfo?.id)
     myOrders.value = (orderRes.items || []).filter(o => o.user_id === userStore.userInfo?.id)
   } catch (error) {
@@ -205,7 +217,7 @@ const loadData = async () => {
 }
 
 const loadLobsters = async () => {
-  if (!userStore.isDeveloper) return
+  if (!userStore.isDeveloper && !userStore.isAdmin) return
   try {
     const res = await lobsterAPI.getMyList()
     myLobsters.value = res.items || []
@@ -222,6 +234,10 @@ watch(activeTab, (tab) => {
 onMounted(() => {
   if (userStore.isLoggedIn) {
     userStore.fetchUserInfo()
+  }
+  const tab = route.query.tab
+  if (tab && ['info', 'tasks', 'orders', 'lobsters'].includes(tab)) {
+    activeTab.value = tab
   }
   loadData()
 })

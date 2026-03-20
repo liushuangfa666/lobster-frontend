@@ -22,17 +22,17 @@
           </router-link>
           <router-link
             v-else-if="!userStore.isDeveloper"
-            to="/user"
+            to="/user?tab=lobsters"
             class="bg-white text-[#ff6b35] font-bold py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors"
           >
             升级为开发者
           </router-link>
           <router-link
             v-else
-            to="/my-lobsters"
+            to="/lobsters/create"
             class="bg-white text-[#ff6b35] font-bold py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors"
           >
-            我的龙虾
+            上传龙虾
           </router-link>
           <router-link to="/tasks/publish" class="border-2 border-white text-white font-bold py-3 px-8 rounded-lg hover:bg-white/10 transition-colors">
             我要雇龙虾
@@ -172,6 +172,7 @@ const loading = ref(true)
 const taskLoading = ref(true)
 const lobsters = ref([])
 const tasks = ref([])
+const hasLobsters = ref(false)
 
 const priceTypeText = {
   0: '一次性',
@@ -197,6 +198,16 @@ onMounted(async () => {
     ])
     lobsters.value = lobsterRes.items || []
     tasks.value = taskRes.items || []
+    
+    // 如果是开发者，检查是否有龙虾
+    if (userStore.isDeveloper) {
+      try {
+        const myLobsters = await lobsterAPI.getMyList()
+        hasLobsters.value = myLobsters.total > 0
+      } catch (e) {
+        hasLobsters.value = false
+      }
+    }
   } catch (error) {
     console.error('加载数据失败:', error)
   } finally {

@@ -115,10 +115,12 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { lobsterAPI } from '../api'
+import { lobsterAPI, authAPI } from '../api'
+import { useUserStore } from '../stores/user'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const availableTags = ['运维', '数据', '开发', '办公', 'K8s', 'Python', '脚本', '自动化']
@@ -169,7 +171,25 @@ const handleSubmit = async () => {
       demo_url: form.demo_url || undefined,
       sdk_url: form.sdk_url || undefined,
     })
-    ElMessage.success('提交成功，等待审核')
+    ElMessage.success('龙虾创建成功！')
+    
+    // 检查是否可以升级为开发者
+    const checkRes = await authAPI.checkUpgrade()
+    if (checkRes.can_upgrade) {
+      try {
+        await authAPI.upgradeToDeveloper()
+        ElMessage.success('恭喜！你已成为开发者！')
+      } catch (error) {
+        // 可能是已经升级了，忽略错误
+        if (error?.response?.data?.detail !== '已经是开发者') {
+          throw error
+        }
+      }
+      await userStore.fetchUserInfo()
+    } else {
+      ElMessage.info('龙虾已提交审核，审核通过后即可上架')
+    }
+    
     router.push('/my-lobsters')
   } catch (error) {
     console.error('提交失败:', error)
