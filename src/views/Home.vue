@@ -149,8 +149,8 @@
       </div>
     </section>
 
-    <!-- CTA -->
-    <section class="py-16 bg-[#004e89] text-white text-center">
+    <!-- CTA (仅未登录用户可见) -->
+    <section v-if="!userStore.isLoggedIn" class="py-16 bg-[#004e89] text-white text-center">
       <div class="container mx-auto px-4">
         <h2 class="text-3xl font-bold mb-4">准备好开始了吗？</h2>
         <p class="text-xl mb-8 opacity-90">立即加入龙虾交易平台，开启你的智能体变现之旅</p>
