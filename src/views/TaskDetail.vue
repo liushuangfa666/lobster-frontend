@@ -332,7 +332,7 @@ const initWebSocket = () => {
   const token = userStore.token
 
   // 创建 WebSocket 连接
-  const { ws, connected, connect, disconnect, logs } = useWebSocket(
+  const { ws, connected, connect: connectFn, disconnect, logs } = useWebSocket(
     userId,
     token,
     // 任务状态变更回调
@@ -376,8 +376,8 @@ const initWebSocket = () => {
   wsConnected.value = connected.value
 
   // 监听连接状态变化
-  const originalConnect = connect
-  connect = () => {
+  const originalConnect = connectFn
+  const connect = () => {
     originalConnect()
     // 通过 watch 监听 connected 变化更新 wsConnected
   }
