@@ -7,7 +7,7 @@ export const useUserStore = defineStore('user', () => {
   const userInfo = ref(null)
 
   const isLoggedIn = computed(() => !!token.value)
-  const isDeveloper = computed(() => userInfo.value?.user_type === 1)
+  const isDeveloper = computed(() => userInfo.value?.user_type >= 1)
   const isAdmin = computed(() => userInfo.value?.user_type === 2)
 
   async function login(username, password) {

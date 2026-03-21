@@ -31,15 +31,25 @@ api.interceptors.response.use(
     return response.data
   },
   (error) => {
+    // config.silent === true 时静默处理，不弹窗，便于调试
+    const silent = error.config?.silent
     if (error.response) {
       const message = error.response.data?.detail || '请求失败'
-      ElMessage.error(message)
-    } else {
+      if (!silent) ElMessage.error(message)
+    } else if (!silent) {
       ElMessage.error('网络错误')
     }
     return Promise.reject(error)
   }
 )
+
+// 静默请求封装 - 不弹窗，便于屏蔽用户可见错误
+export const silentApi = {
+  get: (url, config = {}) => api.get(url, { ...config, silent: true }),
+  post: (url, data, config = {}) => api.post(url, data, { ...config, silent: true }),
+  put: (url, data, config = {}) => api.put(url, data, { ...config, silent: true }),
+  delete: (url, config = {}) => api.delete(url, { ...config, silent: true }),
+}
 
 // ============ 认证相关 ============
 export const authAPI = {

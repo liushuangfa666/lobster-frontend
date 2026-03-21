@@ -169,7 +169,7 @@
             </div>
 
             <!-- 选择龙虾 -->
-            <div v-if="task.status === 0 && !task.current_lobster_id" class="mt-6 pt-6 border-t">
+            <div v-if="task.status === 0 && !task.current_lobster_id && isOwner" class="mt-6 pt-6 border-t">
               <h4 class="font-bold mb-3">选择执行龙虾</h4>
               <button @click="showLobsterDialog = true" class="btn-secondary w-full">
                 选择龙虾
@@ -205,13 +205,39 @@
         </button>
       </div>
     </div>
+
+    <!-- 更换龙虾弹窗 -->
+    <div v-if="showReplaceDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+        <h3 class="text-xl font-bold mb-4">更换龙虾</h3>
+        <div class="space-y-4">
+          <div
+            v-for="lobster in lobsters"
+            :key="lobster.id"
+            class="card cursor-pointer flex items-center justify-between"
+            @click="handleReplace(lobster.id)"
+          >
+            <div>
+              <p class="font-bold">{{ lobster.name }}</p>
+              <p class="text-gray-500 text-sm">{{ lobster.tags }}</p>
+            </div>
+            <div class="text-right">
+              <p class="text-[#ff6b35] font-bold">¥{{ lobster.task_price || lobster.price }}</p>
+            </div>
+          </div>
+        </div>
+        <button @click="showReplaceDialog = false" class="btn-secondary w-full mt-4">
+          关闭
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { taskAPI, lobsterAPI } from '../api'
+import { taskAPI, lobsterAPI, silentApi } from '../api'
 import { useWebSocket, formatLog } from '../api/websocket'
 import { useUserStore } from '../stores/user'
 import { ElMessage } from 'element-plus'
@@ -394,7 +420,7 @@ import { watch } from 'vue'
 
 const handleComplete = async () => {
   try {
-    await taskAPI.complete(route.params.id)
+    await silentApi.post(`/api/tasks/${route.params.id}/complete`)
     ElMessage.success('任务已完成')
     task.value.status = 3
   } catch (error) {
@@ -404,7 +430,7 @@ const handleComplete = async () => {
 
 const handleCancel = async () => {
   try {
-    await taskAPI.cancel(route.params.id)
+    await silentApi.post(`/api/tasks/${route.params.id}/cancel`)
     ElMessage.success('任务已取消')
     task.value.status = 4
   } catch (error) {
@@ -414,7 +440,7 @@ const handleCancel = async () => {
 
 const selectLobster = async (lobsterId) => {
   try {
-    await taskAPI.assign(route.params.id, lobsterId)
+    await silentApi.post(`/api/tasks/${route.params.id}/assign?lobster_id=${lobsterId}`)
     ElMessage.success('龙虾雇佣成功')
     showLobsterDialog.value = false
     // 刷新任务详情
@@ -427,12 +453,27 @@ const selectLobster = async (lobsterId) => {
   }
 }
 
+const handleReplace = async (newLobsterId) => {
+  try {
+    await silentApi.post(`/api/tasks/${route.params.id}/replace?new_lobster_id=${newLobsterId}`)
+    ElMessage.success('龙虾更换成功')
+    showReplaceDialog.value = false
+    // 刷新任务详情
+    const res = await taskAPI.getDetail(route.params.id)
+    task.value = res
+    // 刷新执行状态
+    await refreshExecution()
+  } catch (error) {
+    console.error('更换龙虾失败:', error)
+  }
+}
+
 // OpenClaw 刷新执行状态
 const refreshExecution = async () => {
   if (refreshingExecution.value) return
   refreshingExecution.value = true
   try {
-    const res = await taskAPI.getExecution(route.params.id)
+    const res = await silentApi.get(`/api/tasks/${route.params.id}/execution`)
     execution.value = res
     executionLogs.value = res.execution_logs || []
     executionResult.value = res.execution_result || null
@@ -447,7 +488,7 @@ const refreshExecution = async () => {
 const handleDispatch = async () => {
   try {
     dispatching.value = true
-    await taskAPI.dispatch(route.params.id)
+    await silentApi.post(`/api/tasks/${route.params.id}/dispatch`)
     ElMessage.success('任务已下发到龙虾')
     // 刷新任务详情和执行状态
     const res = await taskAPI.getDetail(route.params.id)

@@ -54,7 +54,10 @@
           >
             上架
           </button>
-          <button class="btn-secondary text-sm py-1 px-3">
+          <button
+            class="btn-secondary text-sm py-1 px-3"
+            @click="$router.push({ path: '/lobsters/create', query: { id: lobster.id } })"
+          >
             编辑
           </button>
         </div>
@@ -65,7 +68,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { lobsterAPI } from '../api'
+import { lobsterAPI, silentApi } from '../api'
 import { ElMessage } from 'element-plus'
 
 const loading = ref(true)
@@ -88,10 +91,15 @@ const loadLobsters = async () => {
 
 const toggleStatus = async (lobster) => {
   try {
-    await lobsterAPI.update(lobster.id, {
-      status: lobster.status === 1 ? 2 : 1
-    })
-    ElMessage.success(lobster.status === 1 ? '下架成功' : '上架成功')
+    if (lobster.status === 1) {
+      // 已上架 -> 下架（调用专门的 unlist 接口）
+      await silentApi.post(`/api/lobsters/${lobster.id}/unlist`)
+      ElMessage.success('下架成功')
+    } else {
+      // 已下架 -> 上架
+      await lobsterAPI.update(lobster.id, { status: 1 })
+      ElMessage.success('上架成功')
+    }
     loadLobsters()
   } catch (error) {
     console.error('操作失败:', error)
