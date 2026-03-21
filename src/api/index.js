@@ -54,6 +54,8 @@ export const silentApi = {
 // ============ 认证相关 ============
 export const authAPI = {
   register: (data) => api.post('/api/auth/register', data),
+  sendRegisterSms: (data) => api.post('/api/auth/send-register-sms', data),
+  smsRegister: (data) => api.post('/api/auth/sms-register', data),
   login: (username, password) => {
     const params = new URLSearchParams()
     params.append('username', username)
