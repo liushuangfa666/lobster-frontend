@@ -46,6 +46,13 @@
             <div class="flex items-center">
               <span class="w-24 text-gray-500">手机号</span>
               <span>{{ userStore.userInfo?.phone || '未设置' }}</span>
+              <button
+                v-if="userStore.userInfo?.phone"
+                class="ml-3 text-sm text-[#ff6b35] hover:underline"
+                @click="openChangePhoneDialog"
+              >
+                修改手机号
+              </button>
             </div>
             <div class="flex items-center">
               <span class="w-24 text-gray-500">余额</span>
@@ -141,6 +148,57 @@
         </div>
       </div>
     </div>
+
+    <!-- 修改手机号弹窗 -->
+    <el-dialog v-model="changePhoneDialogVisible" title="修改手机号" width="400px">
+      <div class="space-y-4">
+        <div v-if="!changePhoneStep2">
+          <!-- 步骤1：输入新手机号 -->
+          <div>
+            <label class="block text-gray-700 mb-2">新手机号</label>
+            <div class="flex gap-2">
+              <input
+                v-model="changePhoneForm.phone"
+                type="tel"
+                class="input flex-1"
+                placeholder="请输入新手机号"
+                maxlength="11"
+              />
+              <button
+                class="btn-outline text-sm px-3 whitespace-nowrap"
+                :disabled="phoneCountdown > 0 || changePhoneSending"
+                @click="sendChangePhoneCode"
+              >
+                {{ phoneCountdown > 0 ? `${phoneCountdown}秒` : '获取验证码' }}
+              </button>
+            </div>
+          </div>
+          <button class="btn-primary w-full mt-4" :disabled="!canSendChangePhone" @click="changePhoneStep2 = true">
+            下一步
+          </button>
+        </div>
+        <div v-else>
+          <!-- 步骤2：输入验证码 -->
+          <div class="bg-blue-50 rounded-lg p-3 text-sm text-blue-700 mb-4">
+            验证码已发送至 <span class="font-bold">{{ changePhoneForm.phone }}</span>
+          </div>
+          <div class="mb-4">
+            <label class="block text-gray-700 mb-2">验证码</label>
+            <input
+              v-model="changePhoneForm.code"
+              type="text"
+              class="input"
+              placeholder="请输入6位验证码"
+              maxlength="6"
+            />
+          </div>
+          <div class="flex gap-2">
+            <button class="btn-outline flex-1" @click="changePhoneStep2 = false">上一步</button>
+            <button class="btn-primary flex-1" :disabled="changePhoneLoading" @click="handleChangePhone">确认修改</button>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -159,6 +217,63 @@ const activeTab = ref('info')
 const myTasks = ref([])
 const myLobsters = ref([])
 const myOrders = ref([])
+
+// 修改手机号
+const changePhoneDialogVisible = ref(false)
+const changePhoneStep2 = ref(false)
+const changePhoneLoading = ref(false)
+const changePhoneSending = ref(false)
+const phoneCountdown = ref(0)
+const changePhoneForm = ref({ phone: '', code: '' })
+let phoneCountdownTimer = null
+
+const canSendChangePhone = computed(() => changePhoneForm.value.phone.length === 11)
+
+const openChangePhoneDialog = () => {
+  changePhoneDialogVisible.value = true
+  changePhoneStep2.value = false
+  changePhoneForm.value = { phone: '', code: '' }
+  phoneCountdown.value = 0
+  if (phoneCountdownTimer) clearInterval(phoneCountdownTimer)
+}
+
+const sendChangePhoneCode = async () => {
+  changePhoneSending.value = true
+  try {
+    await authAPI.sendChangePhoneSms({ phone: changePhoneForm.value.phone })
+    ElMessage.success('验证码已发送')
+    phoneCountdown.value = 60
+    phoneCountdownTimer = setInterval(() => {
+      phoneCountdown.value--
+      if (phoneCountdown.value <= 0) clearInterval(phoneCountdownTimer)
+    }, 1000)
+  } catch (error) {
+    console.error('发送验证码失败:', error)
+  } finally {
+    changePhoneSending.value = false
+  }
+}
+
+const handleChangePhone = async () => {
+  if (changePhoneForm.value.code.length !== 6) {
+    ElMessage.error('请输入6位验证码')
+    return
+  }
+  changePhoneLoading.value = true
+  try {
+    await authAPI.changePhone({
+      phone: changePhoneForm.value.phone,
+      sms_code: changePhoneForm.value.code
+    })
+    ElMessage.success('手机号修改成功')
+    changePhoneDialogVisible.value = false
+    await userStore.fetchUserInfo()
+  } catch (error) {
+    console.error('修改手机号失败:', error)
+  } finally {
+    changePhoneLoading.value = false
+  }
+}
 
 const userTypeText = computed(() => {
   const type = userStore.userInfo?.user_type

@@ -56,6 +56,10 @@ export const authAPI = {
   register: (data) => api.post('/api/auth/register', data),
   sendRegisterSms: (data) => api.post('/api/auth/send-register-sms', data),
   smsRegister: (data) => api.post('/api/auth/sms-register', data),
+  sendChangePhoneSms: (data) => api.post('/api/auth/send-change-phone-sms', data),
+  changePhone: (data) => api.post('/api/auth/change-phone', data),
+  sendResetPasswordSms: (data) => api.post('/api/auth/send-reset-password-sms', data),
+  resetPassword: (data) => api.post('/api/auth/reset-password', data),
   login: (username, password) => {
     const params = new URLSearchParams()
     params.append('username', username)
