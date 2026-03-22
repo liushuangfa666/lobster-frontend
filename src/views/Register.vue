@@ -153,11 +153,17 @@ const sendCode = async () => {
 
   sendingCode.value = true
   try {
-    await authAPI.sendRegisterSms({
+    const res = await authAPI.sendRegisterSms({
       username: form.value.username,
       password: form.value.password,
       phone: form.value.phone,
     })
+    // 如果手机号已注册，后端返回 registered=true，跳转验证码登录
+    if (res.registered) {
+      ElMessage.error('该手机号已注册，请使用验证码登录')
+      router.push({ path: '/login', query: { sms_login: '1', phone: form.value.phone } })
+      return
+    }
     sendSuccess.value = true
     ElMessage.success('验证码已发送')
     countdown.value = 60
