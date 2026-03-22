@@ -124,15 +124,12 @@ const handleRegister = async () => {
   loading.value = true
   try {
     const res = await authAPI.smsRegister({
-      username: form.value.username,
-      password: form.value.password,
       phone: form.value.phone,
       sms_code: form.value.sms_code,
     })
     ElMessage.success('注册成功！')
     localStorage.setItem('token', res.access_token)
     router.push('/')
-    window.location.reload()
   } catch (error) {
     console.error('注册失败:', error)
   } finally {
