@@ -27,12 +27,12 @@
       <div v-if="activeTab === 'password'">
         <form @submit.prevent="handleLogin" class="space-y-4">
           <div>
-            <label class="block text-gray-700 mb-2">用户名</label>
+            <label class="block text-gray-700 mb-2">用户名/手机号</label>
             <input
               v-model="form.username"
               type="text"
               class="input"
-              placeholder="请输入用户名"
+              placeholder="请输入用户名或手机号"
               required
             />
           </div>
@@ -47,9 +47,9 @@
             />
           </div>
           <div class="text-right">
-            <button type="button" class="text-sm text-gray-500 hover:text-[#ff6b35]" @click="activeTab = 'forgot'">
+            <router-link to="/forgot-password" class="text-sm text-gray-500 hover:text-[#ff6b35]">
               忘记密码？
-            </button>
+            </router-link>
           </div>
           <button type="submit" class="btn-primary w-full" :disabled="loading">
             {{ loading ? '登录中...' : '登录' }}
@@ -98,67 +98,6 @@
         </form>
       </div>
 
-      <!-- 忘记密码 -->
-      <div v-if="activeTab === 'forgot'">
-        <!-- 步骤1：输入手机号 -->
-        <div v-if="!forgotStep2">
-          <div class="mb-4">
-            <label class="block text-gray-700 mb-2">手机号</label>
-            <div class="flex gap-2">
-              <input
-                v-model="forgotForm.phone"
-                type="tel"
-                class="input flex-1"
-                placeholder="请输入注册时的手机号"
-                maxlength="11"
-              />
-              <button
-                class="btn-outline text-sm px-3 whitespace-nowrap"
-                :disabled="forgotCountdown > 0 || forgotSending"
-                @click="sendResetPasswordCode"
-              >
-                {{ forgotCountdown > 0 ? `${forgotCountdown}秒` : '获取验证码' }}
-              </button>
-            </div>
-          </div>
-          <button class="btn-primary w-full" :disabled="forgotForm.phone.length !== 11" @click="forgotStep2 = true">
-            下一步
-          </button>
-        </div>
-
-        <!-- 步骤2：输入验证码和新密码 -->
-        <div v-else>
-          <div class="bg-blue-50 rounded-lg p-3 text-sm text-blue-700 mb-4">
-            验证码已发送至 <span class="font-bold">{{ forgotForm.phone }}</span>
-          </div>
-          <div class="space-y-4">
-            <div>
-              <label class="block text-gray-700 mb-2">验证码</label>
-              <input
-                v-model="forgotForm.code"
-                type="text"
-                class="input"
-                placeholder="请输入6位验证码"
-                maxlength="6"
-              />
-            </div>
-            <div>
-              <label class="block text-gray-700 mb-2">新密码</label>
-              <input
-                v-model="forgotForm.new_password"
-                type="password"
-                class="input"
-                placeholder="请输入新密码（至少6位）"
-              />
-            </div>
-            <div class="flex gap-2">
-              <button class="btn-outline flex-1" @click="forgotStep2 = false">上一步</button>
-              <button class="btn-primary flex-1" :disabled="forgotLoading" @click="handleResetPassword">确认重置</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <p class="text-center mt-6 text-gray-600">
         还没有账号？
         <router-link to="/register" class="text-[#ff6b35] hover:underline">
@@ -184,7 +123,6 @@ const activeTab = ref('password')
 const tabs = [
   { key: 'password', label: '密码登录' },
   { key: 'sms', label: '验证码登录' },
-  { key: 'forgot', label: '忘记密码' },
 ]
 
 // 密码登录
@@ -197,14 +135,6 @@ const smsSending = ref(false)
 const smsCountdown = ref(0)
 const smsLoading = ref(false)
 let smsCountdownTimer = null
-
-// 忘记密码
-const forgotStep2 = ref(false)
-const forgotSending = ref(false)
-const forgotCountdown = ref(0)
-const forgotLoading = ref(false)
-const forgotForm = ref({ phone: '', code: '', new_password: '' })
-let forgotCountdownTimer = null
 
 onMounted(() => {
   // 如果 URL 有 sms_login 参数，自动切换到验证码登录 Tab
@@ -282,53 +212,6 @@ const handleSmsLogin = async () => {
     console.error('验证码登录失败:', error)
   } finally {
     smsLoading.value = false
-  }
-}
-
-// 忘记密码 - 发送验证码
-const sendResetPasswordCode = async () => {
-  forgotSending.value = true
-  try {
-    await authAPI.sendResetPasswordSms({ phone: forgotForm.value.phone })
-    ElMessage.success('验证码已发送')
-    forgotCountdown.value = 60
-    forgotCountdownTimer = setInterval(() => {
-      forgotCountdown.value--
-      if (forgotCountdown.value <= 0) clearInterval(forgotCountdownTimer)
-    }, 1000)
-  } catch (error) {
-    console.error('发送验证码失败:', error)
-  } finally {
-    forgotSending.value = false
-  }
-}
-
-// 忘记密码 - 确认重置
-const handleResetPassword = async () => {
-  if (forgotForm.value.code.length !== 6) {
-    ElMessage.error('请输入6位验证码')
-    return
-  }
-  if (forgotForm.value.new_password.length < 6) {
-    ElMessage.error('密码长度不能少于6位')
-    return
-  }
-  forgotLoading.value = true
-  try {
-    await authAPI.resetPassword({
-      phone: forgotForm.value.phone,
-      sms_code: forgotForm.value.code,
-      new_password: forgotForm.value.new_password,
-    })
-    ElMessage.success('密码重置成功，请使用新密码登录')
-    activeTab.value = 'password'
-    form.value.username = ''
-    forgotForm.value = { phone: '', code: '', new_password: '' }
-    forgotStep2.value = false
-  } catch (error) {
-    console.error('重置密码失败:', error)
-  } finally {
-    forgotLoading.value = false
   }
 }
 </script>
